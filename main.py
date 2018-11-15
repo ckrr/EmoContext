@@ -144,6 +144,30 @@ def getWordsRow(row):
                 wordsRow.append(punc)
     return wordsRow
 
+def calcAccuracy(trueOutput, testOutput):
+    trueLabels=trueOutput.loc[:,LABEL].tolist()
+    testLabels=testOutput.loc[:,LABEL].tolist()
+    truePositive=[0,0,0,0]
+    falsePositive=[0,0,0,0]
+    falseNegative=[0,0,0,0]
+    for index in range(len(trueLabels)):
+        if (trueLabels[index]==testLabels[index]):
+            sentIndex = SENTIMENT_DICT[trueLabels[index]]
+            truePositive[sentIndex]+=1
+        else:
+            sentIndexTrue = SENTIMENT_DICT[trueLabels[index]]
+            sentIndexTest = SENTIMENT_DICT[testLabels[index]]
+            falseNegative[sentIndexTrue]+=1
+            falsePositive[sentIndexTest]+=1
+    tp=sum(truePositive[1:])
+    fp=sum(falsePositive[1:])
+    fn=sum(falseNegative[1:])
+    precision=tp/(tp+fp)
+    recall=tp/(tp+fn)
+    harmonicMean=2/(1/precision+1/recall)
+    return harmonicMean
+    
+
 def formatResult(classifyData):
     outFile=open(OUT_NAME, mode="w", encoding="utf-8")
     outFile.write(classifyData.to_csv(sep="\t",index=False))
@@ -169,10 +193,14 @@ lookup.buildClassification()
 
 testClassifier=Classifier(testData, TARGET_DISTRIBUTION_TEST)
 testClassifier.getResults()
+testOutput=testClassifier.classifyData
+testAccuracy=calcAccuracy(testData,testOutput)
+print(testAccuracy)
 
 devClassifier=Classifier(devData, TARGET_DISTRIBUTION_DEV)
 devClassifier.getResults()
-formatResult(devData)
+devOutput=devClassifier.classifyData
+formatResult(devOutput)
 
 
 
