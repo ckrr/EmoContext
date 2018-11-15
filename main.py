@@ -1,15 +1,16 @@
 import pandas as pd
 import math
+from sklearn.model_selection import train_test_split
 
 class Lookup:
-    global test
-    def __init__(self):
+    def __init__(self, _trainData):
         self.wordDict={}
         self.numWords=0
         self.countByWord=[[],[],[],[]]
         self.totalCounts=[0,0,0,0]
         self.logProbs=[[],[],[],[]]
         self.wordStrings=[]
+        self.trainData = _trainData
     def addUnitClassification(self, unit, sentiment):
         sentimentIndex=SENTIMENT_DICT[sentiment]
         if (not (unit in self.wordDict)):
@@ -27,7 +28,7 @@ class Lookup:
             self.addUnitClassification(word,sentiment)
     def buildClassification(self):
         for sentiment in SENTIMENTS:
-            sentData=trainData.loc[trainData[LABEL]==sentiment]
+            sentData=self.trainData.loc[self.trainData[LABEL]==sentiment]
             for row in sentData.iterrows():
                 wordsRow=getWordsRow(row[1])
                 self.addListClassification(wordsRow,sentiment)
@@ -56,13 +57,14 @@ class Prob():
                 self.maxSentiment=si
 
 class Classifier():
-    def __init__(self):
+    def __init__(self, _classifyData, targetDistribution):
         self.probsByRow=[]
-        self.numRows=len(testData)
+        self.numRows=len(_classifyData)
         self.targetAmounts=[self.numRows,0,0,0]
         self.scores=[]
+        self.classifyData=_classifyData.reset_index(drop=True)
         for si in range(1,4):
-            self.targetAmounts[si]=round(TARGET_DISTRIBUTION[si]*self.numRows)
+            self.targetAmounts[si]=round(targetDistribution[si]*self.numRows)
             self.targetAmounts[0]-=self.targetAmounts[si]
         for row in range(self.numRows):
             self.scores.append(0)
@@ -85,8 +87,8 @@ class Classifier():
         for i in range(4):
             totalProbs[i]=totalProbs[i]/sumProbs
         return totalProbs
-    def scoreTest(self):
-        for row in testData.iterrows():
+    def score(self):
+        for row in self.classifyData.iterrows():
             totalProbs=self.classifyRow(row[1])
             self.probsByRow.append(Prob(totalProbs,row[0]))
     def fitToTarget(self):
@@ -106,9 +108,9 @@ class Classifier():
             sentiments.append(sentiment)
         return sentiments
     def getResults(self):
-        self.scoreTest()
+        self.score()
         self.fitToTarget()
-        testData.loc[:,LABEL]=pd.Series(self.convertSentiments())
+        self.classifyData.loc[:,LABEL]=pd.Series(self.convertSentiments())
 
 def getDataFrame(filename):
     trainFile=open(filename,mode="r",encoding="utf-8")
@@ -142,32 +144,35 @@ def getWordsRow(row):
                 wordsRow.append(punc)
     return wordsRow
 
-def formatResult():
+def formatResult(classifyData):
     outFile=open(OUT_NAME, mode="w", encoding="utf-8")
-    outFile.write(testData.to_csv(sep="\t",index=False))
+    outFile.write(classifyData.to_csv(sep="\t",index=False))
 
 TRAIN_NAME="train.txt"
-TEST_NAME="devwithoutlabels.txt"
+DEV_NAME="devwithoutlabels.txt"
 OUT_NAME="test.txt"
 
 SENTIMENTS=["others","happy","sad","angry"]
 SENTIMENT_DICT={"others": 0, "happy": 1, "sad": 2, "angry": 3}
-TARGET_DISTRIBUTION=[0.88,0.04,0.04,0.04]
+TARGET_DISTRIBUTION_DEV=[0.88,0.04,0.04,0.04]
+TARGET_DISTRIBUTION_TEST=[0.5,1/6,1/6,1/6]
 TURN_NAMES=["turn1","turn2","turn3"]
 LABEL="label"
 
-trainData=getDataFrame(TRAIN_NAME)
-testData=getDataFrame(TEST_NAME)
+origData=getDataFrame(TRAIN_NAME)
+[trainData,testData]=train_test_split(origData,test_size=0.2)
+devData=getDataFrame(DEV_NAME)
 
-lookup=Lookup()
+lookup=Lookup(trainData)
 lookup.buildClassification()
 #lookup.outputSignificantWords()
 
-classifier=Classifier()
-classifier.getResults()
+testClassifier=Classifier(testData, TARGET_DISTRIBUTION_TEST)
+testClassifier.getResults()
 
-formatResult()
-
+devClassifier=Classifier(devData, TARGET_DISTRIBUTION_DEV)
+devClassifier.getResults()
+formatResult(devData)
 
 
 
