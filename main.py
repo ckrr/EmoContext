@@ -1,6 +1,7 @@
 import pandas as pd
 import math
 from sklearn.model_selection import train_test_split
+from random import random
 
 class Lookup:
     def __init__(self, _trainData):
@@ -119,6 +120,14 @@ def getDataFrame(filename):
     trainData.columns=trainLines[0].split("\t")
     return trainData
 
+def cutData(origTestData):
+    testData=origTestData.reset_index(drop=True)
+    keepColumn=[]
+    for i in range(len(testData)):
+        keepColumn.append(random() < CUT_FACTOR)
+    testData.loc[:,"keep"]=pd.Series(keepColumn)
+    return testData[(testData[LABEL]=="others") | (testData["keep"])].drop("keep",axis=1)
+
 def getWordsCell(cell):
     return list(word.lower() for word in cell.split())
 
@@ -179,19 +188,22 @@ OUT_NAME="test.txt"
 SENTIMENTS=["others","happy","sad","angry"]
 SENTIMENT_DICT={"others": 0, "happy": 1, "sad": 2, "angry": 3}
 TARGET_DISTRIBUTION_DEV=[0.88,0.04,0.04,0.04]
-TARGET_DISTRIBUTION_TEST=[0.5,1/6,1/6,1/6]
+#TARGET_DISTRIBUTION_TEST=[0.5,1/6,1/6,1/6]
+CUT_FACTOR=0.04*0.5/(0.88*1/6)
 TURN_NAMES=["turn1","turn2","turn3"]
 LABEL="label"
+RANDOM="random"
 
 origData=getDataFrame(TRAIN_NAME)
 [trainData,testData]=train_test_split(origData,test_size=0.2)
+testData=cutData(testData)
 devData=getDataFrame(DEV_NAME)
 
 lookup=Lookup(trainData)
 lookup.buildClassification()
 #lookup.outputSignificantWords()
 
-testClassifier=Classifier(testData, TARGET_DISTRIBUTION_TEST)
+testClassifier=Classifier(testData, TARGET_DISTRIBUTION_DEV)
 testClassifier.getResults()
 testOutput=testClassifier.classifyData
 testAccuracy=calcAccuracy(testData,testOutput)
