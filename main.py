@@ -37,15 +37,6 @@ class Lookup:
         for wordIndex in range(self.numWords):
             for sentimentIndex in range(4):
                 self.logProbs[sentimentIndex].append(math.log(self.countByWord[sentimentIndex][wordIndex]/self.totalCounts[sentimentIndex]))
-    def outputSignificantWords(self):
-        for wi in range(self.numWords):
-            avgLogProb=0
-            for si in range(4):
-                avgLogProb+=self.logProbs[si][wi]
-            avgLogProb/=4
-            for si in range(4):
-                if (self.logProbs[si][wi] > (avgLogProb+2)):
-                    print(self.wordStrings[wi],SENTIMENTS[si],round(self.logProbs[si][wi]-avgLogProb,2))
 
 class Prob():
     def __init__(self, totalProbs, rowId):
@@ -143,16 +134,23 @@ def scrapePunctuation(word):
             punctuation.append(char)
     return [newWord,punctuation]
 
+def getWordsTurn(wordTurn):
+    wordsTurn=[]
+    words=getWordsCell(wordTurn)
+    for word in words:
+        [newWord,punctuation]=scrapePunctuation(word)
+        if (len(newWord)>0):
+            wordsTurn.append(newWord)
+        for punc in punctuation:
+            wordsTurn.append(punc)
+    return wordsTurn
+
 def getWordsRow(row):
     wordsRow=[]
     for turn in TURN_NAMES:
-        words=getWordsCell(row[turn])
-        for word in words:
-            [newWord,punctuation]=scrapePunctuation(word)
-            if (len(newWord)>0):
-                wordsRow.append(newWord)
-            for punc in punctuation:
-                wordsRow.append(punc)
+        wordsTurn=getWordsTurn(row[turn])
+        for word in wordsTurn:
+            wordsRow.append(word)
     return wordsRow
 
 def calcAccuracy(trueOutput, testOutput):
