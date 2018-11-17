@@ -2,6 +2,7 @@ import pandas as pd
 import math
 from sklearn.model_selection import train_test_split
 from random import random
+from time import time
 
 class Lookup:
     def __init__(self, _trainData):
@@ -58,11 +59,12 @@ class Prob():
                 self.maxSentiment=si
 
 class Classifier():
-    def __init__(self, _classifyData, targetDistribution):
+    def __init__(self, _classifyData, _lookup, targetDistribution):
         self.probsByRow=[]
         self.numRows=len(_classifyData)
         self.targetAmounts=[self.numRows,0,0,0]
         self.scores=[]
+        self.lookup=_lookup
         self.classifyData=_classifyData.reset_index(drop=True)
         for si in range(1,4):
             self.targetAmounts[si]=round(targetDistribution[si]*self.numRows)
@@ -73,11 +75,11 @@ class Classifier():
         wordsRow=getWordsRow(row)
         totalLogProbs=[0,0,0,0]
         for word in wordsRow:
-            if (not (word in lookup.wordDict)):
+            if (not (word in self.lookup.wordDict)):
                 continue
-            wi=lookup.wordDict[word]
+            wi=self.lookup.wordDict[word]
             for si in range(4):
-                totalLogProbs[si]+=lookup.logProbs[si][wi]
+                totalLogProbs[si]+=self.lookup.logProbs[si][wi]
         maxLogProb=max(totalLogProbs)
         sumProbs=0
         totalProbs=[]
@@ -175,7 +177,34 @@ def calcAccuracy(trueOutput, testOutput):
     recall=tp/(tp+fn)
     harmonicMean=2/(1/precision+1/recall)
     return harmonicMean
-    
+
+def simulateSingleSplit():
+    [trainData,testData]=train_test_split(origData,test_size=0.2)
+    testData=cutData(testData)
+    lookup=Lookup(trainData)
+    lookup.buildClassification()    
+    testClassifier=Classifier(testData, lookup, TARGET_DISTRIBUTION_DEV)
+    testClassifier.getResults()
+    testOutput=testClassifier.classifyData
+    testAccuracy=calcAccuracy(testData,testOutput)
+    return testAccuracy
+
+def simulateAverageAccuracy(numIterations):
+    startTime=time()
+    avg=0
+    for i in range(numIterations):
+        avg+=simulateSingleSplit()
+    endTime=time()
+    print("Time elapsed",endTime-startTime)
+    return avg/numIterations
+
+def produceFinalOutput():
+    allCutData=cutData(origData)
+    lookup=Lookup(allCutData)
+    devClassifier=Classifier(devData, lookup, TARGET_DISTRIBUTION_DEV)
+    devClassifier.getResults()
+    devOutput=devClassifier.classifyData
+    formatResult(devOutput)    
 
 def formatResult(classifyData):
     outFile=open(OUT_NAME, mode="w", encoding="utf-8")
@@ -195,25 +224,9 @@ LABEL="label"
 RANDOM="random"
 
 origData=getDataFrame(TRAIN_NAME)
-[trainData,testData]=train_test_split(origData,test_size=0.2)
-testData=cutData(testData)
 devData=getDataFrame(DEV_NAME)
 
-lookup=Lookup(trainData)
-lookup.buildClassification()
-#lookup.outputSignificantWords()
-
-testClassifier=Classifier(testData, TARGET_DISTRIBUTION_DEV)
-testClassifier.getResults()
-testOutput=testClassifier.classifyData
-testAccuracy=calcAccuracy(testData,testOutput)
-print(testAccuracy)
-
-devClassifier=Classifier(devData, TARGET_DISTRIBUTION_DEV)
-devClassifier.getResults()
-devOutput=devClassifier.classifyData
-formatResult(devOutput)
-
+print("Accuracy",simulateAverageAccuracy(10))
 
 
 
