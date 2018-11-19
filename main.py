@@ -13,6 +13,7 @@ class Lookup:
         self.logProbs=[[],[],[],[]]
         self.wordStrings=[]
         self.trainData = _trainData
+        self.turnMultiplier = [1,1,1]
     def addUnitClassification(self, unit, sentiment):
         sentimentIndex=SENTIMENT_DICT[sentiment]
         if (not (unit in self.wordDict)):
@@ -63,14 +64,16 @@ class Classifier():
         for row in range(self.numRows):
             self.scores.append(0)
     def classifyRow(self,row):
-        wordsRow=getWordsRow(row)
         totalLogProbs=[0,0,0,0]
-        for word in wordsRow:
-            if (not (word in self.lookup.wordDict)):
-                continue
-            wi=self.lookup.wordDict[word]
-            for si in range(4):
-                totalLogProbs[si]+=self.lookup.logProbs[si][wi]
+        for turn in TURN_NAMES:
+            turnIndex=TURN_NAMES_DICT[turn]
+            wordsTurn=getWordsTurn(row[turn])
+            for word in wordsTurn:
+                if (not (word in self.lookup.wordDict)):
+                    continue
+                wi=self.lookup.wordDict[word]
+                for si in range(4):
+                    totalLogProbs[si]+=(self.lookup.logProbs[si][wi]*self.lookup.turnMultiplier[turnIndex])
         maxLogProb=max(totalLogProbs)
         sumProbs=0
         totalProbs=[]
@@ -176,33 +179,51 @@ def calcAccuracy(trueOutput, testOutput):
     harmonicMean=2/(1/precision+1/recall)
     return harmonicMean
 
-def simulateSingleSplit():
+def simulateSingleSplit(modifiedTurnMultiplier):
     [trainData,testData]=train_test_split(origData,test_size=0.2)
     testData=cutData(testData)
     lookup=Lookup(trainData)
-    lookup.buildClassification()    
+    lookup.buildClassification()
+    lookup.turnMultiplier=modifiedTurnMultiplier
     testClassifier=Classifier(testData, lookup, TARGET_DISTRIBUTION_DEV)
     testClassifier.getResults()
     testOutput=testClassifier.classifyData
     testAccuracy=calcAccuracy(testData,testOutput)
     return testAccuracy
 
-def simulateAverageAccuracy(numIterations):
+def simulateAverageAccuracy(numIterations,modifiedTurnMultiplier):
     startTime=time()
     avg=0
     for i in range(numIterations):
-        avg+=simulateSingleSplit()
+        avg+=simulateSingleSplit(modifiedTurnMultiplier)
     endTime=time()
     print("Time elapsed",endTime-startTime)
     return avg/numIterations
 
-def produceFinalOutput():
-    allCutData=cutData(origData)
-    lookup=Lookup(allCutData)
+def trainTurnMultiplier(numIterations, upperValue):
+    modifiedTurnMultiplier=[1,1,1]
+    for i in range(upperValue):
+        bestAccuracy=0
+        bestIndex=0
+        for turnIndex in range(3):
+            modifiedTurnMultiplier[turnIndex]+=1
+            curAccuracy=simulateAverageAccuracy(numIterations,modifiedTurnMultiplier)
+            if (curAccuracy>bestAccuracy):
+                bestAccuracy=curAccuracy
+                bestIndex=turnIndex
+            modifiedTurnMultiplier[turnIndex]-=1
+        modifiedTurnMultiplier[bestIndex]+=1
+        print(modifiedTurnMultiplier)
+    return modifiedTurnMultiplier
+
+def produceFinalOutput(turnMultiplier):
+    lookup=Lookup(origData)
+    lookup.buildClassification()
+    lookup.turnMultiplier=turnMultiplier
     devClassifier=Classifier(devData, lookup, TARGET_DISTRIBUTION_DEV)
     devClassifier.getResults()
     devOutput=devClassifier.classifyData
-    formatResult(devOutput)    
+    formatResult(devOutput)
 
 def formatResult(classifyData):
     outFile=open(OUT_NAME, mode="w", encoding="utf-8")
@@ -218,15 +239,15 @@ TARGET_DISTRIBUTION_DEV=[0.88,0.04,0.04,0.04]
 #TARGET_DISTRIBUTION_TEST=[0.5,1/6,1/6,1/6]
 CUT_FACTOR=0.04*0.5/(0.88*1/6)
 TURN_NAMES=["turn1","turn2","turn3"]
+TURN_NAMES_DICT={"turn1": 0, "turn2": 1, "turn3": 2}
 LABEL="label"
 RANDOM="random"
 
 origData=getDataFrame(TRAIN_NAME)
 devData=getDataFrame(DEV_NAME)
 
-print("Accuracy",simulateAverageAccuracy(10))
-
-
+actualTurnMultiplier=trainTurnMultiplier(10,10)
+produceFinalOutput(actualTurnMultiplier)
 
 
 
