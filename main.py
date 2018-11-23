@@ -192,15 +192,13 @@ def simulateSingleSplit(modifiedTurnMultiplier):
     return testAccuracy
 
 def simulateAverageAccuracy(numIterations,modifiedTurnMultiplier):
-    startTime=time()
     avg=0
     for i in range(numIterations):
         avg+=simulateSingleSplit(modifiedTurnMultiplier)
-    endTime=time()
-    print("Time elapsed",endTime-startTime)
     return avg/numIterations
 
 def trainTurnMultiplier(numIterations, upperValue):
+    startTime=time()
     modifiedTurnMultiplier=[1,1,1]
     for i in range(upperValue):
         bestAccuracy=0
@@ -213,7 +211,11 @@ def trainTurnMultiplier(numIterations, upperValue):
                 bestIndex=turnIndex
             modifiedTurnMultiplier[turnIndex]-=1
         modifiedTurnMultiplier[bestIndex]+=1
-        print(modifiedTurnMultiplier)
+        curTime=time()
+        timeDiff=round((curTime-startTime)/60,0)
+        print("Minutes elapsed:", timeDiff)
+        print("Current turnMultiplier:", modifiedTurnMultiplier)
+        print("Expected accuracy:", bestAccuracy)
     return modifiedTurnMultiplier
 
 def produceFinalOutput(turnMultiplier):
@@ -236,17 +238,19 @@ OUT_NAME="test.txt"
 SENTIMENTS=["others","happy","sad","angry"]
 SENTIMENT_DICT={"others": 0, "happy": 1, "sad": 2, "angry": 3}
 TARGET_DISTRIBUTION_DEV=[0.88,0.04,0.04,0.04]
-#TARGET_DISTRIBUTION_TEST=[0.5,1/6,1/6,1/6]
-CUT_FACTOR=0.04*0.5/(0.88*1/6)
+TARGET_DISTRIBUTION_TEST=[0.5,1/6,1/6,1/6]
+CUT_FACTOR=TARGET_DISTRIBUTION_DEV[1]*TARGET_DISTRIBUTION_TEST[0]/(TARGET_DISTRIBUTION_DEV[0]*TARGET_DISTRIBUTION_TEST[1])
 TURN_NAMES=["turn1","turn2","turn3"]
 TURN_NAMES_DICT={"turn1": 0, "turn2": 1, "turn3": 2}
 LABEL="label"
 RANDOM="random"
+ITERATIONS_PER_SIMULATION = 20
+TURN_MULTIPLIER_ADJUSTMENTS = 50
 
 origData=getDataFrame(TRAIN_NAME)
 devData=getDataFrame(DEV_NAME)
 
-actualTurnMultiplier=trainTurnMultiplier(10,10)
+actualTurnMultiplier=trainTurnMultiplier(ITERATIONS_PER_SIMULATION, TURN_MULTIPLIER_ADJUSTMENTS)
 produceFinalOutput(actualTurnMultiplier)
 
 
