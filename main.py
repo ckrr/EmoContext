@@ -38,7 +38,16 @@ class Lookup:
         for wordIndex in range(self.numWords):
             for sentimentIndex in range(4):
                 self.logProbs[sentimentIndex].append(math.log(self.countByWord[sentimentIndex][wordIndex]/self.totalCounts[sentimentIndex]))
-
+    def outputSignificantWords(self):
+        for wi in range(self.numWords):
+            avgLogProb=0
+            for si in range(4):
+                avgLogProb+=self.logProbs[si][wi]
+            avgLogProb/=4
+            for si in range(4):
+                if (self.logProbs[si][wi] > (avgLogProb+2)):
+                    print(self.wordStrings[wi],SENTIMENTS[si],round(self.logProbs[si][wi]-avgLogProb,2))
+        
 class Prob():
     def __init__(self, totalProbs, rowId):
         self.totalProbs=totalProbs
@@ -244,15 +253,14 @@ TURN_NAMES=["turn1","turn2","turn3"]
 TURN_NAMES_DICT={"turn1": 0, "turn2": 1, "turn3": 2}
 LABEL="label"
 RANDOM="random"
-ITERATIONS_PER_SIMULATION = 20
-TURN_MULTIPLIER_ADJUSTMENTS = 50
+ITERATIONS_PER_SIMULATION = 10
+TURN_MULTIPLIER_ADJUSTMENTS = 10
 
 origData=getDataFrame(TRAIN_NAME)
 devData=getDataFrame(DEV_NAME)
 
 actualTurnMultiplier=trainTurnMultiplier(ITERATIONS_PER_SIMULATION, TURN_MULTIPLIER_ADJUSTMENTS)
 produceFinalOutput(actualTurnMultiplier)
-
 
 
 
